@@ -1,0 +1,160 @@
+﻿KPI,Description,Formula
+BestSeillingProducts,Best selling products by total sales,"CREATE TEMPORARY TABLE BestSellingProducts AS
+SELECT 
+    ProductID,
+    SUM(Sales) AS TotalSales
+FROM 
+    SalesFact
+GROUP BY 
+    ProductID
+ORDER BY 
+    TotalSales DESC
+LIMIT 5;"
+AvgPriceDynamics,Average price for best selling products over a time,"CREATE TEMPORARY TABLE AvgPriceDynamics AS
+SELECT 
+    sf.ProductID,
+    DATE_FORMAT(sf.OrderDate, '%Y-%m') AS Month,
+    AVG(sf.Sales / sf.Quantity) AS AvgPrice
+FROM 
+    SalesFact sf
+JOIN 
+    BestSellingProducts bsp
+ON 
+    sf.ProductID = bsp.ProductID
+GROUP BY 
+    sf.ProductID, DATE_FORMAT(sf.OrderDate, '%Y-%m');"
+AvgPrice,Dynamics of avg price for best-selling products,"SELECT 
+    ProductID,
+    Month,
+    AvgPrice
+FROM 
+    AvgPriceDynamics
+ORDER BY 
+    ProductID, Month;"
+,,
+TotalSales,Total sales for a state datewise,"CREATE TEMPORARY TABLE SalesByState AS
+SELECT 
+    State,
+    DATE_FORMAT(OrderDate, '%Y-%m') AS Month,
+    SUM(Sales) AS TotalSales
+FROM 
+    SalesFact
+GROUP BY 
+    State, DATE_FORMAT(OrderDate, '%Y-%m');"
+TotalSales,Sales dynamics by states,"SELECT 
+    State,
+    Month,
+    TotalSales
+FROM 
+    SalesByState
+ORDER BY 
+    State, Month;"
+,,
+TotalSales,Total sales for each customer in every segment,"CREATE TEMPORARY TABLE TotalSalesByCustomer AS
+SELECT 
+    Segment,
+    CustomerID,
+    SUM(Sales) AS TotalSales
+FROM 
+    SalesFact
+GROUP BY 
+    Segment, CustomerID;"
+Rank,Best customers in segments,"WITH RankedCustomers AS (
+    SELECT 
+        Segment,
+        CustomerID,
+        TotalSales,
+        RANK() OVER (PARTITION BY Segment ORDER BY TotalSales DESC) AS Rank
+    FROM 
+        TotalSalesByCustomer
+)
+SELECT 
+    Segment,
+    CustomerID,
+    TotalSales,
+    Rank
+FROM 
+    RankedCustomers
+WHERE 
+    Rank = 1;"
+,,
+TotalSales,Total sale for every product in every state,"CREATE TEMPORARY TABLE TotalSales AS
+SELECT 
+    State,
+    ProductID,
+    SUM(Sales) AS TotalSales
+FROM 
+    SalesFact
+GROUP BY 
+    State, ProductID;"
+TotalSales,Top/Bottom products according to sales by state,"WITH RankedProducts AS (
+    SELECT 
+        State,
+        ProductID,
+        TotalSales,
+        RANK() OVER (PARTITION BY State ORDER BY TotalSales DESC) AS RankDesc,
+        RANK() OVER (PARTITION BY State ORDER BY TotalSales ASC) AS RankAsc
+    FROM 
+        TotalSales
+)
+SELECT 
+    State,
+    ProductID,
+    TotalSales,
+    RankAsc,
+    RankDesc
+FROM 
+    RankedProducts
+WHERE 
+    RankAsc = 1 OR RankDesc = 1;"
+,,
+DeliveryTime,Delivery Time for each product,"CREATE TEMPORARY TABLE DeliveryTimeCalc AS
+SELECT 
+    OrderID,
+    ProductID,
+    State,
+    DATEDIFF(ShipDate, OrderDate) AS DeliveryTime
+FROM 
+    SalesFact;"
+AvgDeliveryTime,Average delivery time against each product,"CREATE TEMPORARY TABLE AvgDeliveryTime AS
+SELECT 
+    State,
+    ProductID,
+    AVG(DeliveryTime) AS AvgDeliveryTime
+FROM 
+    DeliveryTimeCalc
+GROUP BY 
+    State, ProductID;"
+AvgDeliveryTime,Top/Bottom products according to avg delivery time by state.,"WITH RankedProducts AS (
+    SELECT 
+        State,
+        ProductID,
+        AvgDeliveryTime,
+        RANK() OVER (PARTITION BY State ORDER BY AvgDeliveryTime ASC) AS RankAsc,
+        RANK() OVER (PARTITION BY State ORDER BY AvgDeliveryTime DESC) AS RankDesc
+    FROM 
+        AvgDeliveryTime
+)
+SELECT 
+    State,
+    ProductID,
+    AvgDeliveryTime,
+    RankAsc,
+    RankDesc
+FROM 
+    RankedProducts
+WHERE 
+    RankAsc = 1 OR RankDesc = 1;"
+,,
+,,
+,,
+,,
+,,
+,,
+,,
+,,
+,,
+,,
+,,
+,,
+,,
